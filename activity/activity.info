@@ -1,0 +1,8 @@
+[Activity]
+name = Gallery
+activity_version = 1
+bundle_id = org.sugarlabs.Gallery
+exec = sugar-activity3 activity.GalleryActivity
+icon = gallery
+license = GPLv2+
+repository = https://github.com/44yu5h/gallery_activity
