@@ -63,22 +63,36 @@ class GalleryActivity(activity.Activity):
         #=================== Toolbar UI ===================
         self.toolbar_box = ToolbarBox()
         activity_button = ActivityToolbarButton(self)
+        self.toolbar_box.padding = 30
         self.toolbar_box.toolbar.insert(activity_button, 0)
         activity_button.show()
 
-        # next button
+        def space_widget():
+            space1 = Gtk.Box()
+            space1.set_size_request(20, -1)
+            space1_tool_item = Gtk.ToolItem()
+            space1_tool_item.add(space1)
+            self.toolbar_box.toolbar.insert(space1_tool_item, -1)
+            space1.show()
+            space1_tool_item.show()
+            return space1_tool_item
+
+        space_widget()
+
         self.prev_btn = self.create_toolbar_btn('prev', 'Previous File',
                                                 self.prev_cb)
         self.next_btn = self.create_toolbar_btn('next', 'Next File',
                                                 self.next_cb)
-        self.delete_btn = self.create_toolbar_btn('delete', 'Delete File',
-                                                  self.delete_cb)
 
         separator = Gtk.SeparatorToolItem()
         separator.props.draw = False
         separator.set_expand(True)
         self.toolbar_box.toolbar.insert(separator, -1)
         separator.show()
+
+        self.delete_btn = self.create_toolbar_btn('delete', 'Delete File',
+                                                  self.delete_cb)
+        space_widget()
 
         stop_button = StopButton(self)
         self.toolbar_box.toolbar.insert(stop_button, -1)
@@ -197,6 +211,11 @@ class GalleryActivity(activity.Activity):
         .home-screen {
             background-color: #1C1C1C;
             padding: 20px;
+        }
+        button {
+            background: none;
+            border: none;
+            box-shadow: none;
         }
         """
         css_provider = Gtk.CssProvider()
