@@ -27,9 +27,15 @@ class RoundedImage(Gtk.DrawingArea):
         cr.line_to(width - self.radius, 0)
         cr.arc(width - self.radius, self.radius, self.radius, -0.5 * 3.14, 0)
         cr.line_to(width, height - self.radius)
-        cr.arc(width - self.radius, height - self.radius, self.radius, 0, 0.5 * 3.14)
+        cr.arc(width - self.radius,
+               height - self.radius,
+               self.radius,
+               0, 0.5 * 3.14)
         cr.line_to(self.radius, height)
-        cr.arc(self.radius, height - self.radius, self.radius, 0.5 * 3.14, 3.14)
+        cr.arc(self.radius,
+               height - self.radius,
+               self.radius,
+               0.5 * 3.14, 3.14)
         cr.line_to(0, self.radius)
         cr.arc(self.radius, self.radius, self.radius, 3.14, 1.5 * 3.14)
         cr.close_path()
@@ -124,7 +130,6 @@ class GalleryActivity(activity.Activity):
         self.pic_height = picture_box_h - 40
         self.pic_width = picture_box_w - 40
         print(HS_width, HS_height, picture_box_w, picture_box_h)
-        print("######################all done! here atleast")
 
     def load_media(self):
         media_dir = os.path.expanduser('~/Pictures')
@@ -142,11 +147,13 @@ class GalleryActivity(activity.Activity):
         if self.media_files:
             media_file = self.media_files[self.current_index]
             if media_file.lower().endswith(('png', 'jpg', 'jpeg', 'gif')):
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(media_file, self.pic_width, self.pic_height)
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
+                    media_file, self.pic_width, self.pic_height)
                 rounded_image = RoundedImage(pixbuf)
                 self.picture_box.pack_start(rounded_image, True, True, 0)
             elif media_file.lower().endswith(('mp4', 'avi', 'mov')):
-                video_label = Gtk.Label(label="Video: " + os.path.basename(media_file))
+                video_label = Gtk.Label(label="Video: "
+                                        + os.path.basename(media_file))
                 self.picture_box.pack_start(video_label, True, True, 0)
         self.picture_box.show_all()
 
