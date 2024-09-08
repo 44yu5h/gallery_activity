@@ -6,7 +6,7 @@ from sugar3.graphics.toolbarbox import ToolbarBox
 from sugar3.activity.widgets import StopButton
 from sugar3.activity.widgets import ActivityToolbarButton
 
-from gi.repository import Gtk, Gdk, GdkPixbuf
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 gi.require_version('Gtk', '3.0')
 gi.require_version('Rsvg', '2.0')
 
@@ -82,6 +82,7 @@ class GalleryActivity(activity.Activity):
         self.set_canvas(self.HomeScreen())
         self.home_screen.connect("size-allocate", self.set_size)
         self.load_media()
+        GLib.timeout_add(150, self.update_display)
 
     #===================== Misc fns. =====================
     def create_toolbar_btn(self, icon, tooltip, callback):
@@ -133,7 +134,6 @@ class GalleryActivity(activity.Activity):
             ('png', 'jpg', 'jpeg', 'gif', 'mp4', 'avi', 'mov'
              ))]
         self.media_files.sort(key=os.path.getmtime, reverse=True)
-        self.home_screen.connect("size-allocate", self.update_display)
 
     def update_display(self):
         for child in self.picture_box.get_children():
