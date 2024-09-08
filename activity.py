@@ -92,6 +92,17 @@ class GalleryActivity(activity.Activity):
         self.load_media()
         GLib.timeout_add(150, self.update_display)
 
+        self.connect("key-press-event", self.on_key_press)
+
+    #================ Keyboard Shortcuts =================
+    def on_key_press(self, widget, event):
+        if event.keyval == Gdk.KEY_Right or event.keyval == Gdk.KEY_Up:
+            self.next_cb()
+        elif event.keyval == Gdk.KEY_Left or event.keyval == Gdk.KEY_Down:
+            self.prev_cb()
+        elif event.keyval == Gdk.KEY_Delete:
+            self.delete_cb()
+
     #===================== Misc fns. =====================
     def create_toolbar_btn(self, icon, tooltip, callback):
         button = Gtk.ToggleButton()
@@ -110,17 +121,17 @@ class GalleryActivity(activity.Activity):
         icon.set_from_pixbuf(pixbuf)
         return icon
 
-    def next_cb(self, button):
+    def next_cb(self, *a):
         if self.current_index < len(self.media_files) - 1:
             self.current_index += 1
             self.update_display()
 
-    def prev_cb(self, button):
+    def prev_cb(self, *a):
         if self.current_index > 0:
             self.current_index -= 1
             self.update_display()
 
-    def delete_cb(self, button):
+    def delete_cb(self, *a):
         print('Delete')
 
     def get_pic_size(self, *a):
