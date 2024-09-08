@@ -1,14 +1,16 @@
 import gi
+
+gi.require_version('Gtk', '3.0')
+gi.require_version('Rsvg', '2.0')
+gi.require_version('Gst', '1.0')
+
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gst
 import os
 import glob
 from sugar3.activity import activity
 from sugar3.graphics.toolbarbox import ToolbarBox
 from sugar3.activity.widgets import StopButton
 from sugar3.activity.widgets import ActivityToolbarButton
-
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
-gi.require_version('Gtk', '3.0')
-gi.require_version('Rsvg', '2.0')
 
 
 class RoundedImage(Gtk.DrawingArea):
@@ -55,6 +57,9 @@ class GalleryActivity(activity.Activity):
     #==========================================================================
     def __init__(self, handle):
         activity.Activity.__init__(self, handle)
+        Gst.init(None)
+        self.player = Gst.ElementFactory.make("playbin", "player")
+        self.is_playing = False
         self.max_participants = 1
 
         self.current_index = 0
@@ -116,8 +121,11 @@ class GalleryActivity(activity.Activity):
             self.prev_cb()
         elif event.keyval == Gdk.KEY_Delete:
             self.delete_cb()
+        elif event.keyval == Gdk.KEY_p:
+            if not self.is_an_image:
+                self.play_video()
 
-    #===================== Misc fns. =====================
+    #===================== Set up buttons =====================
     def create_toolbar_btn(self, icon, tooltip, callback):
         button = Gtk.ToggleButton()
         button.set_image(self._icon(icon))
@@ -158,6 +166,7 @@ class GalleryActivity(activity.Activity):
                 print(f"Error deleting file {media_file}: {e}")
         #TODO - popup dialog for confirmation
 
+    #===================== Misc. fns. =====================
     def get_pic_size(self, *a):
         HS_width = self.home_screen.get_allocated_width()
         HS_height = self.home_screen.get_allocated_height()
@@ -169,19 +178,22 @@ class GalleryActivity(activity.Activity):
         self.media_files = glob.glob(os.path.join(media_dir, '**', '*'),
                                      recursive=True)
         self.media_files = [f for f in self.media_files if f.lower().endswith(
-            ('png', 'jpg', 'jpeg', 'gif', 'mp4', 'avi', 'mov'
+            ('png', 'jpg', 'jpeg', 'gif', 'mp4', 'avi', 'mov', 'webm'
              ))]
         self.media_files.sort(key=os.path.getmtime, reverse=True)
 
+    #===================== Update current media =====================
     def update_display(self):
         for child in self.rounded_pic.get_children():
             self.rounded_pic.remove(child)
+            self.flush_player()
 
         if self.media_files:
             media_file = self.media_files[self.current_index]
 
             # image
             if media_file.lower().endswith(('png', 'jpg', 'jpeg', 'gif')):
+                self.is_an_image = True
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
                     media_file, self.pic_width, self.pic_height)
                 self.rounded_pic.set_size_request(pixbuf.get_width(),
@@ -189,19 +201,75 @@ class GalleryActivity(activity.Activity):
                 rounded_img = RoundedImage(pixbuf)
                 self.rounded_pic.pack_start(rounded_img, True, True, 0)
 
-            # video
-            elif media_file.lower().endswith(('mp4', 'avi', 'mov')):
-                video_label = Gtk.Label(label="Video: "
-                                        + os.path.basename(media_file))
-                self.rounded_pic.pack_start(video_label, True, True, 0)
+            # Video
+            elif media_file.lower().endswith(('mp4', 'avi', 'mov', 'webm')):
+                self.is_an_image = False
 
-        self.rounded_pic.show_all()
+                self.player.set_property("uri", f"file://{media_file}")
+                video_sink = Gst.ElementFactory.make("gtksink", "video_sink")
+                self.player.set_property("video-sink", video_sink)
+                video_widget = video_sink.props.widget
+                self.rounded_pic.set_size_request(self.pic_width,
+                                                  self.pic_height)
+                self.rounded_pic.pack_start(video_widget, True, True, 0)
+
+                self.progress_bar = Gtk.Scale(
+                    orientation=Gtk.Orientation.HORIZONTAL)
+                self.progress_bar.set_range(0, 100)
+                self.progress_bar.set_draw_value(False)
+                self.rounded_pic.pack_start(self.progress_bar, False, False, 0)
+
+            self.rounded_pic.show_all()
+
+    #=============== Extra fns for vid playback =================
+    def play_video(self):
+        if self.is_playing:
+            self.player.set_state(Gst.State.PAUSED)
+        else:
+            if self.progress_bar.get_value() == 0:
+                self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH |
+                                        Gst.SeekFlags.KEY_UNIT, 0)
+                self.player.set_state(Gst.State.PLAYING)
+            else:
+                self.player.set_state(Gst.State.PLAYING)
+            GLib.timeout_add(50, self.update_progress_bar)
+        self.is_playing = not self.is_playing
+
+    def update_progress_bar(self):
+        if self.is_playing:
+            success, duration = self.player.query_duration(Gst.Format.TIME)
+            success, position = self.player.query_position(Gst.Format.TIME)
+            if success and duration > 0:
+                self.duration = duration
+                value = position / duration * 100
+                self.progress_bar.set_value(value)
+                if position + 10000000 >= duration:
+                    print("Video reached the end")
+                    self.flush_player()
+                    return False
+            else:
+                self.progress_bar.set_value(0)
+                return False
+        return True
+
+    def on_seek(self, scale):
+        seek_time = int(scale.get_value() / 100 * self.duration)
+        print(f"Seeking to: {seek_time}")
+        self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH |
+                                Gst.SeekFlags.KEY_UNIT, seek_time)
+
+    def flush_player(self):
+        self.player.set_state(Gst.State.NULL)
+        self.is_playing = False
+        self.progress_bar.set_value(0)
+        self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH |
+                                Gst.SeekFlags.KEY_UNIT, 0)
 
     #=================== Home Screen UI ====================
     def HomeScreen(self):
         self.home_screen = Gtk.ScrolledWindow()
         self.white_bg = Gtk.Box()
-        self.rounded_pic = Gtk.Box()
+        self.rounded_pic = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.white_bg.get_style_context().add_class('white-bg')
         self.home_screen.get_style_context().add_class('home-screen')
         self.white_bg.pack_start(self.rounded_pic, True, True, 0)
