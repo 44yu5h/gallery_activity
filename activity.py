@@ -146,7 +146,17 @@ class GalleryActivity(activity.Activity):
             self.update_display()
 
     def delete_cb(self, *a):
-        print('Delete')
+        if self.media_files:
+            media_file = self.media_files[self.current_index]
+            print(media_file)
+            try:
+                # move to trash instead of permanently deleting
+                os.system('gio trash "' + media_file + '"')
+                del self.media_files[self.current_index]
+                self.update_display()
+            except Exception as e:
+                print(f"Error deleting file {media_file}: {e}")
+        #TODO - popup dialog for confirmation
 
     def get_pic_size(self, *a):
         HS_width = self.home_screen.get_allocated_width()
