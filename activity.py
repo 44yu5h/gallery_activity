@@ -18,11 +18,13 @@ class RoundedImage(Gtk.DrawingArea):
         self.radius = radius
         self.connect("draw", self.do_draw)
 
-    def do_draw(self, widget, cr):
+    def do_draw(self, widget, cr=None):
+        if cr is None:
+            return
         width = self.pixbuf.get_width()
         height = self.pixbuf.get_height()
 
-        # Create a mask for rounded corners
+        # rounded corners
         cr.move_to(self.radius, 0)
         cr.line_to(width - self.radius, 0)
         cr.arc(width - self.radius, self.radius, self.radius, -0.5 * 3.14, 0)
@@ -41,7 +43,7 @@ class RoundedImage(Gtk.DrawingArea):
         cr.close_path()
         cr.clip()
 
-        # Draw the image
+        # paint
         Gdk.cairo_set_source_pixbuf(cr, self.pixbuf, 0, 0)
         cr.paint()
 
@@ -86,7 +88,7 @@ class GalleryActivity(activity.Activity):
         self.show_all()
 
         self.set_canvas(self.HomeScreen())
-        self.home_screen.connect("size-allocate", self.set_size)
+        self.home_screen.connect("size-allocate", self.get_pic_size)
         self.load_media()
         GLib.timeout_add(150, self.update_display)
 
@@ -121,15 +123,11 @@ class GalleryActivity(activity.Activity):
     def delete_cb(self, button):
         print('Delete')
 
-    def set_size(self, *a):
+    def get_pic_size(self, *a):
         HS_width = self.home_screen.get_allocated_width()
         HS_height = self.home_screen.get_allocated_height()
-        picture_box_w = HS_width - 80
-        picture_box_h = HS_height - 80
-        self.picture_box.set_size_request(picture_box_w, picture_box_h)
-        self.pic_height = picture_box_h - 40
-        self.pic_width = picture_box_w - 40
-        print(HS_width, HS_height, picture_box_w, picture_box_h)
+        self.pic_height = HS_height - 120
+        self.pic_width = HS_width - 120
 
     def load_media(self):
         media_dir = os.path.expanduser('~/Pictures')
@@ -141,37 +139,44 @@ class GalleryActivity(activity.Activity):
         self.media_files.sort(key=os.path.getmtime, reverse=True)
 
     def update_display(self):
-        for child in self.picture_box.get_children():
-            self.picture_box.remove(child)
+        for child in self.rounded_pic.get_children():
+            self.rounded_pic.remove(child)
 
         if self.media_files:
             media_file = self.media_files[self.current_index]
+
+            # image
             if media_file.lower().endswith(('png', 'jpg', 'jpeg', 'gif')):
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
                     media_file, self.pic_width, self.pic_height)
-                rounded_image = RoundedImage(pixbuf)
-                self.picture_box.pack_start(rounded_image, True, True, 0)
+                self.rounded_pic.set_size_request(pixbuf.get_width(),
+                                                  pixbuf.get_height())
+                rounded_img = RoundedImage(pixbuf)
+                self.rounded_pic.pack_start(rounded_img, True, True, 0)
+
+            # video
             elif media_file.lower().endswith(('mp4', 'avi', 'mov')):
                 video_label = Gtk.Label(label="Video: "
                                         + os.path.basename(media_file))
-                self.picture_box.pack_start(video_label, True, True, 0)
-        self.picture_box.show_all()
+                self.rounded_pic.pack_start(video_label, True, True, 0)
+
+        self.rounded_pic.show_all()
 
     #=================== Home Screen UI ====================
     def HomeScreen(self):
         self.home_screen = Gtk.ScrolledWindow()
-        self.picture_box = Gtk.Box()
-        # self.picture_box.set_valign(Gtk.Align.CENTER)
-        # self.picture_box.set_halign(Gtk.Align.CENTER)
-        self.picture_box.get_style_context().add_class('picture-box')
+        self.white_bg = Gtk.Box()
+        self.rounded_pic = Gtk.Box()
+        self.white_bg.get_style_context().add_class('white-bg')
         self.home_screen.get_style_context().add_class('home-screen')
-        self.home_screen.add(self.picture_box)
-        self.picture_box.show_all()
-        self.picture_box.show()
-        self.home_screen.show()
+        self.white_bg.pack_start(self.rounded_pic, True, True, 0)
+        self.rounded_pic.set_halign(Gtk.Align.CENTER)
+        self.rounded_pic.set_valign(Gtk.Align.CENTER)
+        self.home_screen.add(self.white_bg)
+        self.home_screen.show_all()
 
         css = """
-        .picture-box {
+        .white-bg {
             border-radius: 15px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             border: 1px solid rgba(0, 0, 0, 0.1);
