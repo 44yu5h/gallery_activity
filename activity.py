@@ -186,7 +186,8 @@ class GalleryActivity(activity.Activity):
     def update_display(self):
         for child in self.rounded_pic.get_children():
             self.rounded_pic.remove(child)
-            self.flush_player()
+            if hasattr(self, 'progress_bar'):
+                self.flush_player()
 
         if self.media_files:
             media_file = self.media_files[self.current_index]
